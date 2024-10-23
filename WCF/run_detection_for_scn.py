@@ -20,6 +20,11 @@ from lib.datasets.eval_protocals.mask import circleIOU
 ##for circle fusion
 import subprocess
 import shutil
+import sys
+
+
+
+print("Python interpreter being used:", sys.executable)
 
 image_ext = ['jpg', 'jpeg', 'png', 'webp']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
@@ -261,8 +266,12 @@ def copy_and_rename_files(source_directory_path, target_directory_path):
                 # Ensure the target directory exists
                 os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
 
+                # Copy the file
                 shutil.copy(source_file_path, target_file_path)
                 print(f'Copied: {source_file_path} to {target_file_path}')
+
+                # Change permissions of the copied file to rw-rw-rw- (read and write for everyone)
+                os.chmod(target_file_path, 0o666)
 
 
 # def run_one_scn(demo_scn,demo_dir,opt):
@@ -306,22 +315,26 @@ def test_if_fuse(demo_scn, demo_dir, opt):
             detector = Detector(opt)  # Adjust initialization as necessary
 
             run_one_scn(demo_scn, working_dir, detector, basename, opt, xml_file)
+
+            # Get the directory of the current Python file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+
             #merge result
-            run_external_script('merge_xml.py', demo_dir=opt.demo_dir)
+            run_external_script(os.path.join(current_dir, 'merge_xml.py'), demo_dir=opt.demo_dir)
+
         copy_and_rename_files(source_directory_path=opt.demo_dir, target_directory_path=opt.target_dir)
 
+    # Evaluation for circle fusion result
+    #if opt.circle_fusion_eval:
+    #    run_external_script(os.path.join(current_dir, 'eval_xml.py'), demo_dir=opt.demo_dir,
+    #                        gt_dir=opt.gt_dir)
 
-    #evaluation for circle fusion result
-    if opt.circle_fusion_eval:
-        run_external_script('eval_xml.py', demo_dir=opt.demo_dir, gt_dir=opt.gt_dir)
-
+    # Generate GeoJSON
     if opt.generate_geojson:
-        run_external_script('xml_to_geojson.py', wsi_dir=opt.demo,
+        run_external_script(os.path.join(current_dir, 'xml_to_geojson.py'), wsi_dir=opt.demo,
                             xml_dir=opt.target_dir)
 
-
-
-            # Your prediction and XML saving logic here
+        # Your prediction and XML saving logic here
 
     else:
         # Your existing single model logic here
@@ -551,6 +564,12 @@ def run_one_scn(demo_scn, working_dir,detector,basename,opt,xml_file):
     out = xmltodict.unparse(doc_out, pretty=True)
     with open(xml_file, 'wb') as file:
         file.write(out.encode('utf-8'))
+
+
+    # Change permissions to rw-rw-rw- (read and write for everyone)
+    os.chmod(xml_file, 0o666)
+
+
 
     os.system('rm -r "%s"' % (os.path.join(working_dir, '2d_patch')))
 
